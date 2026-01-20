@@ -1,111 +1,79 @@
 # CLAUDE.md - X Algorithm Simulator
 
 ## Overview
-X（旧Twitter）のPhoenix / Grok-based Transformerアルゴリズム（2026年版）をシミュレーションするReactアプリ。
-投稿内容を分析し、アルゴリズムスコアを0-100点で評価する。
+Xのアルゴリズムに基づいて投稿をスコアリングするReactアプリ。
+投稿前にスコアをチェックして、改善アドバイスを受けられる。
+
+## Live
+- **Demo**: https://akine.github.io/x-algorithm-simulator/
+- **GitHub**: https://github.com/akine/x-algorithm-simulator
 
 ## Tech Stack
-- **Framework**: React 18 + TypeScript
-- **Build**: Vite 6
-- **Styling**: Tailwind CSS v4
-- **Icons**: Lucide React
-- **State**: React useState/useMemo（外部ライブラリ不要）
+- React 18 + TypeScript
+- Vite 6
+- Tailwind CSS v4
+- Lucide React (icons)
+- GitHub Pages (hosting)
 
 ## Project Structure
 ```
 src/
-├── App.tsx           # Main UI component
+├── App.tsx           # メインUI（ダッシュボード形式）
 ├── types.ts          # TypeScript型定義
-├── scoringEngine.ts  # アルゴリズムスコア計算ロジック
+├── scoringEngine.ts  # スコア計算ロジック
 ├── main.tsx          # エントリーポイント
-└── index.css         # Tailwind imports + カスタムスタイル
+└── index.css         # Tailwind + カスタムスタイル
 ```
 
-## Algorithm Details (Phoenix 2026)
+## Scoring Algorithm
 
-### Score Formula
+### 計算式
 ```
-Total Score = Σ (weight_i × P(action_i)) - Negative Impact
+Score = 50 + Σ(加点) - Σ(減点)
+※ 0〜100の範囲に正規化
 ```
 
-### Engagement Weights (Positive)
-| Action | Weight | Description |
-|--------|--------|-------------|
-| Follow | 3.0 | 最高評価 - フォロー獲得 |
-| Dwell | 2.5 | 滞在時間 - 質の指標 |
-| Video View | 2.0 | 動画視聴（50%以上） |
-| Share | 1.8 | 外部シェア |
-| Repost | 1.5 | リポスト |
-| Reply | 1.0 | リプライ |
-| Favorite | 0.5 | いいね |
-| Photo Expand | 0.4 | 画像拡大 |
-| Click | 0.3 | クリック |
+### 加点要素
+| 要素 | 点数 |
+|------|------|
+| 質問形式（?） | +15 |
+| 画像添付 | +20 |
+| 動画添付 | +25 |
+| 適切な長さ（100-200字） | +10 |
+| ハッシュタグ（1-3個） | +6 |
+| 絵文字（1-3個） | +5 |
+| 適度な改行 | +5 |
 
-### Negative Weights (Penalties)
-| Signal | Weight |
-|--------|--------|
-| Report | -100 |
-| Block | -50 |
-| Mute | -30 |
-| Not Interested | -10 |
+### 減点要素
+| 要素 | 点数 |
+|------|------|
+| 短すぎる（30字未満） | -10 |
+| 長すぎる（250字超） | -15 |
+| ハッシュタグ過多（5個以上） | -20 |
+| URLのみ | -30 |
+| 攻撃的な表現 | -25 |
 
 ## Commands
 ```bash
-# Development
+# 開発サーバー
 npm run dev
 
-# Build
+# ビルド
 npm run build
 
-# Preview production build
-npm run preview
-
-# Type check
-npx tsc --noEmit
+# デプロイ（GitHub Pages）
+npm run deploy
 ```
 
-## Features
-1. **Input Section**: ツイート下書き、メディア選択、ターゲット層選択
-2. **Scoring Engine**: リアルタイムスコア計算、確率表示
-3. **Feedback Section**: 改善アドバイス、警告表示
-4. **Phoenix Retrieval**: 英語併記によるグローバルリーチ評価
-5. **Author Diversity**: 連投リスク警告
+## Recent Updates
+- ダッシュボード形式のレイアウト
+- UI/フォントサイズ拡大（見やすく）
+- 日本語UI
+- リアルタイムスコアリング
+- 改善アドバイス機能
 
-## Design Tokens
-- **Background**: #0a0a0a (メイン), #111 (カード)
-- **Text**: #fff (プライマリ), #9ca3af (セカンダリ)
-- **Accent**: Blue (#3b82f6), Purple (#8b5cf6)
-- **Success**: Emerald (#10b981)
-- **Warning**: Yellow (#eab308), Orange (#f97316)
-- **Error**: Red (#ef4444)
-
-## Session Memory
-このプロジェクトを再開する場合:
+## Resume
 ```bash
 cd ~/workspace/x-algorithm-simulator
 claude --resume
 ```
-
-### 現在の状態
-- [x] プロジェクト初期化
-- [x] Tailwind CSS v4 セットアップ
-- [x] スコアリングエンジン実装
-- [x] UI実装（入力フォーム、スコア表示、フィードバック）
-- [x] ダークモードUI
-
-### 次のステップ（オプション）
-- [ ] LocalStorageで下書き保存
-- [ ] 複数ツイート比較機能
-- [ ] スコア履歴グラフ
-- [ ] PWA対応
-- [ ] エクスポート機能（画像/JSON）
-
-## Philosophy
-- **Mobile First**: レスポンシブ対応最優先
-- **最小変更**: 依頼範囲のみ修正
-- **壊さない**: 既存デザイン・動作維持
-
-## Don'ts
-- 過度な最適化（必要になったら）
-- 外部API依存（オフラインで動作）
-- 複雑な状態管理ライブラリ
