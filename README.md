@@ -12,6 +12,12 @@
   投稿前にスコアをチェックして、バズる投稿を目指そう 🚀
 </p>
 
+<p align="center">
+  <a href="https://akine.github.io/x-algorithm-simulator/">
+    <img src="https://img.shields.io/badge/🎮_Live_Demo-Try_Now!-ff69b4?style=for-the-badge" />
+  </a>
+</p>
+
 ---
 
 ## ✨ Features
