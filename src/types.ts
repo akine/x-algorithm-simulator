@@ -1,75 +1,74 @@
-// Engagement probability types based on X's Phoenix algorithm
-export interface EngagementProbabilities {
-  favorite: number; // P(like)
-  reply: number; // P(reply)
-  repost: number; // P(repost/retweet)
-  click: number; // P(click) - profile, link, etc.
-  videoView: number; // P(video_view) - 50%+ watch time
-  photoExpand: number; // P(photo_expand)
-  dwell: number; // P(dwell) - time spent on tweet
-  share: number; // P(share) - external share
-  followAuthor: number; // P(follow_author)
+// X推奨アルゴリズム 18種類の評価アクション
+
+// エンゲージメント
+export interface EngagementActions {
+  like: number; // いいね
+  reply: number; // リプライ
+  repost: number; // リポスト
+  quote: number; // 引用RT
 }
 
-export interface NegativeSignals {
-  notInterested: number; // P(not_interested)
-  blockAuthor: number; // P(block)
-  muteAuthor: number; // P(mute)
-  report: number; // P(report)
+// 閲覧行動
+export interface ViewActions {
+  click: number; // クリック
+  imageExpand: number; // 画像展開
+  profileView: number; // プロフィール閲覧
+  dwellTime: number; // 滞在時間
 }
 
-// Weights based on X's algorithm documentation
-export interface AlgorithmWeights {
-  favorite: number;
-  reply: number;
-  repost: number;
-  click: number;
-  videoView: number;
-  photoExpand: number;
-  dwell: number;
-  share: number;
-  followAuthor: number;
-  // Negative weights
-  notInterested: number;
-  blockAuthor: number;
-  muteAuthor: number;
-  report: number;
+// 共有・その他
+export interface ShareActions {
+  share: number; // シェア
+  dmShare: number; // DM共有
+  linkCopy: number; // リンクコピー
+  videoView: number; // 動画視聴
+  follow: number; // フォロー
 }
 
-export type MediaType = "none" | "image" | "video" | "link" | "poll";
-export type TargetAudience =
-  | "engineer"
-  | "creator"
-  | "business"
-  | "general"
-  | "news";
+// ネガティブ（減点）
+export interface NegativeActions {
+  notInterested: number; // 興味なし
+  block: number; // ブロック
+  mute: number; // ミュート
+  report: number; // 報告
+}
 
-export interface TweetInput {
+// メディアタイプ
+export type MediaType = "none" | "image" | "video" | "link";
+
+// 投稿入力
+export interface PostInput {
   content: string;
   mediaType: MediaType;
-  targetAudience: TargetAudience;
-  hasEnglish: boolean;
-  isThread: boolean;
-  hasHashtags: boolean;
-  hasMentions: boolean;
-  postTime: "peak" | "offpeak" | "unknown";
-  consecutivePosts: number; // Number of posts in last 24h
 }
 
+// 加点・減点の詳細
+export interface ScoreDetail {
+  label: string;
+  points: number;
+  applied: boolean;
+  reason?: string;
+}
+
+// スコア結果
 export interface ScoreResult {
   totalScore: number; // 0-100
-  engagementProbs: EngagementProbabilities;
-  negativeSignals: NegativeSignals;
-  breakdown: ScoreBreakdown;
-  advice: string[];
-  warnings: string[];
-  globalReachScore: number; // Phoenix retrieval score
-  authorDiversityRisk: "low" | "medium" | "high";
+  baseScore: number; // 基準点 50
+  bonusPoints: number; // 加点合計
+  penaltyPoints: number; // 減点合計
+  bonusDetails: ScoreDetail[]; // 加点詳細
+  penaltyDetails: ScoreDetail[]; // 減点詳細
+  advice: string[]; // 改善アドバイス
+  stats: PostStats; // 投稿の統計
 }
 
-export interface ScoreBreakdown {
-  dwellContribution: number;
-  videoViewContribution: number;
-  engagementContribution: number;
-  negativeImpact: number;
+// 投稿の統計情報
+export interface PostStats {
+  charCount: number;
+  hashtagCount: number;
+  emojiCount: number;
+  lineBreakCount: number;
+  hasQuestion: boolean;
+  hasUrl: boolean;
+  urlOnly: boolean;
 }

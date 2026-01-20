@@ -1,514 +1,293 @@
-import type {
-  TweetInput,
-  ScoreResult,
-  EngagementProbabilities,
-  NegativeSignals,
-  AlgorithmWeights,
-  ScoreBreakdown,
-} from "./types";
+import type { PostInput, ScoreResult, ScoreDetail, PostStats } from "./types";
 
-// X Algorithm Weights (2026 Phoenix Update)
-// Based on public documentation and research
-const ALGORITHM_WEIGHTS: AlgorithmWeights = {
-  // Positive engagement weights
-  favorite: 0.5, // Base engagement signal
-  reply: 1.0, // Strong conversation signal
-  repost: 1.5, // High amplification value
-  click: 0.3, // Interest indicator
-  videoView: 2.0, // Heavy emphasis on video consumption
-  photoExpand: 0.4, // Visual engagement
-  dwell: 2.5, // Highest weight - quality indicator
-  share: 1.8, // External distribution
-  followAuthor: 3.0, // Ultimate conversion
+// テキスト分析ヘルパー関数
 
-  // Negative weights (penalties)
-  notInterested: -10.0,
-  blockAuthor: -50.0,
-  muteAuthor: -30.0,
-  report: -100.0,
-};
-
-// Text analysis helpers
-function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
+// 文字数カウント（URLを除外）
+function countChars(text: string): number {
+  // URLを除外してカウント
+  const withoutUrls = text.replace(/https?:\/\/[^\s]+/g, "");
+  return withoutUrls.length;
 }
 
-function countEmojis(text: string): number {
-  const emojiRegex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]/gu;
-  return (text.match(emojiRegex) || []).length;
-}
-
+// ハッシュタグカウント
 function countHashtags(text: string): number {
-  return (text.match(/#\w+/g) || []).length;
+  const matches = text.match(/#[^\s#]+/g);
+  return matches ? matches.length : 0;
 }
 
-function countMentions(text: string): number {
-  return (text.match(/@\w+/g) || []).length;
+// 絵文字カウント
+function countEmojis(text: string): number {
+  const emojiRegex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]|[\u{1F100}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1FA00}-\u{1FAFF}]/gu;
+  const matches = text.match(emojiRegex);
+  return matches ? matches.length : 0;
 }
 
+// 改行カウント
+function countLineBreaks(text: string): number {
+  const matches = text.match(/\n/g);
+  return matches ? matches.length : 0;
+}
+
+// 質問形式チェック
 function hasQuestion(text: string): boolean {
-  return text.includes("?") || /\?$/.test(text);
+  return text.includes("?") || text.includes("？");
 }
 
-function hasCallToAction(text: string): boolean {
-  const ctaPatterns =
-    /(\bRT\b|リツイート|拡散|シェア|フォロー|チェック|見て|教えて|コメント|返信|いいね|確認)/i;
-  return ctaPatterns.test(text);
+// URLチェック
+function hasUrl(text: string): boolean {
+  return /https?:\/\/[^\s]+/.test(text);
 }
 
-function hasEnglishText(text: string): boolean {
-  const englishRegex = /[a-zA-Z]{3,}/g;
-  const matches = text.match(englishRegex) || [];
-  return matches.length >= 2;
+// URLのみチェック
+function isUrlOnly(text: string): boolean {
+  const withoutUrls = text.replace(/https?:\/\/[^\s]+/g, "").trim();
+  return hasUrl(text) && withoutUrls.length < 10;
 }
 
-function hasControversialWords(text: string): boolean {
-  // Words that might trigger negative reactions
-  const controversial =
-    /(炎上|批判|問題|最悪|クソ|死ね|バカ|アホ|嫌い|うざい)/i;
-  return controversial.test(text);
+// 攻撃的な表現チェック
+function hasOffensiveWords(text: string): boolean {
+  const offensivePatterns = [
+    /死ね/,
+    /殺す/,
+    /バカ/,
+    /アホ/,
+    /クソ/,
+    /ゴミ/,
+    /消えろ/,
+    /うざい/,
+    /きもい/,
+    /しね/,
+    /ころす/,
+  ];
+  return offensivePatterns.some((pattern) => pattern.test(text));
 }
 
-function hasSensationalWords(text: string): boolean {
-  const sensational =
-    /(衝撃|暴露|緊急|速報|必見|ヤバい|激震|炎上|闇|真実)/i;
-  return sensational.test(text);
+// 適度な改行チェック（2-4個が適切）
+function hasProperLineBreaks(text: string, charCount: number): boolean {
+  const lineBreaks = countLineBreaks(text);
+  // 100文字以上で2-4個の改行があれば適切
+  if (charCount >= 100 && lineBreaks >= 2 && lineBreaks <= 4) {
+    return true;
+  }
+  // 短い投稿では1-2個でも適切
+  if (charCount >= 50 && charCount < 100 && lineBreaks >= 1 && lineBreaks <= 2) {
+    return true;
+  }
+  return false;
 }
 
-// Calculate engagement probabilities based on tweet content
-function calculateEngagementProbs(
-  input: TweetInput
-): EngagementProbabilities {
-  const { content, mediaType, targetAudience, hasHashtags, hasMentions } =
-    input;
-
-  const wordCount = countWords(content);
-  const emojiCount = countEmojis(content);
-  const hashtagCount = hasHashtags ? countHashtags(content) : 0;
-  const mentionCount = hasMentions ? countMentions(content) : 0;
-  const isQuestion = hasQuestion(content);
-  const hasCTA = hasCallToAction(content);
-  const hasEnglish = hasEnglishText(content);
-
-  // Base probabilities
-  let favorite = 0.15;
-  let reply = 0.05;
-  let repost = 0.03;
-  let click = 0.1;
-  let videoView = 0;
-  let photoExpand = 0;
-  let dwell = 0.2;
-  let share = 0.02;
-  let followAuthor = 0.01;
-
-  // Content length impact on dwell time
-  if (wordCount > 50) {
-    dwell += 0.15;
-  } else if (wordCount > 20) {
-    dwell += 0.08;
-  } else if (wordCount < 10) {
-    dwell -= 0.05;
-  }
-
-  // Media type impact
-  switch (mediaType) {
-    case "video":
-      videoView = 0.4;
-      dwell += 0.25;
-      favorite += 0.1;
-      repost += 0.05;
-      share += 0.03;
-      break;
-    case "image":
-      photoExpand = 0.35;
-      dwell += 0.1;
-      favorite += 0.08;
-      break;
-    case "link":
-      click += 0.15;
-      dwell += 0.05;
-      break;
-    case "poll":
-      reply += 0.1;
-      dwell += 0.12;
-      favorite += 0.05;
-      break;
-  }
-
-  // Emoji impact (moderate use is good)
-  if (emojiCount >= 1 && emojiCount <= 3) {
-    favorite += 0.05;
-    dwell += 0.03;
-  } else if (emojiCount > 5) {
-    favorite -= 0.03;
-    dwell -= 0.02;
-  }
-
-  // Hashtag impact (1-2 is optimal)
-  if (hashtagCount >= 1 && hashtagCount <= 2) {
-    click += 0.03;
-    repost += 0.02;
-  } else if (hashtagCount > 3) {
-    favorite -= 0.05;
-    click -= 0.02;
-  }
-
-  // Mention impact
-  if (mentionCount >= 1 && mentionCount <= 2) {
-    reply += 0.08;
-    click += 0.05;
-  } else if (mentionCount > 3) {
-    favorite -= 0.03;
-  }
-
-  // Question increases reply probability
-  if (isQuestion) {
-    reply += 0.12;
-    dwell += 0.05;
-  }
-
-  // Call to action impact
-  if (hasCTA) {
-    repost += 0.04;
-    followAuthor += 0.02;
-    reply += 0.03;
-  }
-
-  // Target audience modifiers
-  switch (targetAudience) {
-    case "engineer":
-      reply += 0.05;
-      repost += 0.02;
-      break;
-    case "creator":
-      favorite += 0.08;
-      share += 0.02;
-      break;
-    case "business":
-      click += 0.05;
-      followAuthor += 0.02;
-      break;
-    case "news":
-      repost += 0.08;
-      click += 0.05;
-      break;
-  }
-
-  // English text for global reach
-  if (hasEnglish) {
-    repost += 0.03;
-    click += 0.02;
-    followAuthor += 0.01;
-  }
-
-  // Thread bonus
-  if (input.isThread) {
-    dwell += 0.15;
-    followAuthor += 0.02;
-    click += 0.05;
-  }
-
-  // Time of posting
-  if (input.postTime === "peak") {
-    favorite += 0.05;
-    reply += 0.03;
-    repost += 0.03;
-  } else if (input.postTime === "offpeak") {
-    favorite -= 0.02;
-    reply -= 0.01;
-  }
-
-  // Clamp all values between 0 and 1
-  const clamp = (v: number) => Math.min(1, Math.max(0, v));
-
+// 投稿の統計情報を取得
+function analyzePost(content: string): PostStats {
+  const charCount = countChars(content);
   return {
-    favorite: clamp(favorite),
-    reply: clamp(reply),
-    repost: clamp(repost),
-    click: clamp(click),
-    videoView: clamp(videoView),
-    photoExpand: clamp(photoExpand),
-    dwell: clamp(dwell),
-    share: clamp(share),
-    followAuthor: clamp(followAuthor),
+    charCount,
+    hashtagCount: countHashtags(content),
+    emojiCount: countEmojis(content),
+    lineBreakCount: countLineBreaks(content),
+    hasQuestion: hasQuestion(content),
+    hasUrl: hasUrl(content),
+    urlOnly: isUrlOnly(content),
   };
 }
 
-// Calculate negative signal probabilities
-function calculateNegativeSignals(input: TweetInput): NegativeSignals {
-  const { content, consecutivePosts } = input;
+// メインのスコア計算関数
+export function calculateScore(input: PostInput): ScoreResult {
+  const { content, mediaType } = input;
+  const stats = analyzePost(content);
 
-  let notInterested = 0.02;
-  let blockAuthor = 0.001;
-  let muteAuthor = 0.005;
-  let report = 0.0001;
+  const bonusDetails: ScoreDetail[] = [];
+  const penaltyDetails: ScoreDetail[] = [];
 
-  // Controversial content
-  if (hasControversialWords(content)) {
-    notInterested += 0.08;
-    blockAuthor += 0.02;
-    muteAuthor += 0.05;
-    report += 0.01;
-  }
+  // ========== 加点要素 ==========
 
-  // Sensational/clickbait content
-  if (hasSensationalWords(content)) {
-    notInterested += 0.05;
-    muteAuthor += 0.02;
-  }
+  // 質問形式(?) +15
+  bonusDetails.push({
+    label: "質問形式（?）",
+    points: 15,
+    applied: stats.hasQuestion,
+    reason: stats.hasQuestion ? "質問はリプライを促進します" : "質問形式にするとエンゲージメントUP",
+  });
 
-  // Too many consecutive posts (spam signal)
-  if (consecutivePosts > 10) {
-    notInterested += 0.1;
-    muteAuthor += 0.08;
-  } else if (consecutivePosts > 5) {
-    notInterested += 0.05;
-    muteAuthor += 0.03;
-  }
+  // 画像添付 +20
+  const hasImage = mediaType === "image";
+  bonusDetails.push({
+    label: "画像添付",
+    points: 20,
+    applied: hasImage,
+    reason: hasImage ? "画像が視覚的な興味を引きます" : "画像を追加すると注目度UP",
+  });
 
-  // Excessive hashtags
-  if (countHashtags(content) > 5) {
-    notInterested += 0.06;
-    muteAuthor += 0.03;
-  }
+  // 動画添付 +25
+  const hasVideo = mediaType === "video";
+  bonusDetails.push({
+    label: "動画添付",
+    points: 25,
+    applied: hasVideo,
+    reason: hasVideo ? "動画は最も高いエンゲージメントを生みます" : "動画は最高の加点要素です",
+  });
 
-  // Clamp values
-  const clamp = (v: number) => Math.min(1, Math.max(0, v));
+  // 適切な長さ (100-200字) +10
+  const properLength = stats.charCount >= 100 && stats.charCount <= 200;
+  bonusDetails.push({
+    label: "適切な長さ（100-200字）",
+    points: 10,
+    applied: properLength,
+    reason: properLength
+      ? `${stats.charCount}字：読みやすい長さです`
+      : stats.charCount < 100
+        ? `${stats.charCount}字：もう少し詳しく書くと◎`
+        : `${stats.charCount}字：少し長めです`,
+  });
 
-  return {
-    notInterested: clamp(notInterested),
-    blockAuthor: clamp(blockAuthor),
-    muteAuthor: clamp(muteAuthor),
-    report: clamp(report),
-  };
-}
+  // ハッシュタグ(1-3個) +6
+  const properHashtags = stats.hashtagCount >= 1 && stats.hashtagCount <= 3;
+  bonusDetails.push({
+    label: "ハッシュタグ（1-3個）",
+    points: 6,
+    applied: properHashtags,
+    reason: properHashtags
+      ? `${stats.hashtagCount}個：発見性が向上します`
+      : stats.hashtagCount === 0
+        ? "1-3個のハッシュタグを追加すると発見されやすくなります"
+        : `${stats.hashtagCount}個：多すぎるとスパム扱いされます`,
+  });
 
-// Calculate score breakdown
-function calculateBreakdown(
-  probs: EngagementProbabilities,
-  negatives: NegativeSignals
-): ScoreBreakdown {
-  const dwellContribution = probs.dwell * ALGORITHM_WEIGHTS.dwell * 10;
-  const videoViewContribution =
-    probs.videoView * ALGORITHM_WEIGHTS.videoView * 10;
+  // 絵文字(1-3個) +5
+  const properEmojis = stats.emojiCount >= 1 && stats.emojiCount <= 3;
+  bonusDetails.push({
+    label: "絵文字（1-3個）",
+    points: 5,
+    applied: properEmojis,
+    reason: properEmojis
+      ? `${stats.emojiCount}個：適度な絵文字で親しみやすさUP`
+      : stats.emojiCount === 0
+        ? "1-3個の絵文字を追加すると目を引きます"
+        : `${stats.emojiCount}個：絵文字が多すぎます`,
+  });
 
-  const engagementContribution =
-    probs.favorite * ALGORITHM_WEIGHTS.favorite * 10 +
-    probs.reply * ALGORITHM_WEIGHTS.reply * 10 +
-    probs.repost * ALGORITHM_WEIGHTS.repost * 10 +
-    probs.click * ALGORITHM_WEIGHTS.click * 10 +
-    probs.photoExpand * ALGORITHM_WEIGHTS.photoExpand * 10 +
-    probs.share * ALGORITHM_WEIGHTS.share * 10 +
-    probs.followAuthor * ALGORITHM_WEIGHTS.followAuthor * 10;
+  // 適度な改行 +5
+  const properBreaks = hasProperLineBreaks(content, stats.charCount);
+  bonusDetails.push({
+    label: "適度な改行",
+    points: 5,
+    applied: properBreaks,
+    reason: properBreaks
+      ? "読みやすいフォーマットです"
+      : "適度に改行を入れると読みやすくなります",
+  });
 
-  const negativeImpact =
-    negatives.notInterested * Math.abs(ALGORITHM_WEIGHTS.notInterested) * 0.5 +
-    negatives.blockAuthor * Math.abs(ALGORITHM_WEIGHTS.blockAuthor) * 0.5 +
-    negatives.muteAuthor * Math.abs(ALGORITHM_WEIGHTS.muteAuthor) * 0.5 +
-    negatives.report * Math.abs(ALGORITHM_WEIGHTS.report) * 0.5;
+  // ========== 減点要素 ==========
 
-  return {
-    dwellContribution,
-    videoViewContribution,
-    engagementContribution,
-    negativeImpact,
-  };
-}
+  // 短すぎる(30字未満) -10
+  const tooShort = stats.charCount < 30 && stats.charCount > 0;
+  penaltyDetails.push({
+    label: "短すぎる（30字未満）",
+    points: -10,
+    applied: tooShort,
+    reason: tooShort
+      ? `${stats.charCount}字：もう少し内容を追加しましょう`
+      : undefined,
+  });
 
-// Generate improvement advice
-function generateAdvice(
-  input: TweetInput,
-  _probs: EngagementProbabilities
-): string[] {
+  // 長すぎる(250字超) -15
+  const tooLong = stats.charCount > 250;
+  penaltyDetails.push({
+    label: "長すぎる（250字超）",
+    points: -15,
+    applied: tooLong,
+    reason: tooLong
+      ? `${stats.charCount}字：長すぎると離脱されやすいです`
+      : undefined,
+  });
+
+  // ハッシュタグ過多(5個以上) -20
+  const tooManyHashtags = stats.hashtagCount >= 5;
+  penaltyDetails.push({
+    label: "ハッシュタグ過多（5個以上）",
+    points: -20,
+    applied: tooManyHashtags,
+    reason: tooManyHashtags
+      ? `${stats.hashtagCount}個：スパム判定のリスクがあります`
+      : undefined,
+  });
+
+  // URLのみ -30
+  penaltyDetails.push({
+    label: "URLのみ",
+    points: -30,
+    applied: stats.urlOnly,
+    reason: stats.urlOnly
+      ? "URLだけでは興味を引けません。説明を追加しましょう"
+      : undefined,
+  });
+
+  // 攻撃的な表現 -25
+  const offensive = hasOffensiveWords(content);
+  penaltyDetails.push({
+    label: "攻撃的な表現",
+    points: -25,
+    applied: offensive,
+    reason: offensive
+      ? "攻撃的な表現はブロック・報告のリスクがあります"
+      : undefined,
+  });
+
+  // ========== スコア計算 ==========
+  // Score = 50 + Σ(加点) - Σ(減点)
+
+  const baseScore = 50;
+  const bonusPoints = bonusDetails
+    .filter((d) => d.applied)
+    .reduce((sum, d) => sum + d.points, 0);
+  const penaltyPoints = penaltyDetails
+    .filter((d) => d.applied)
+    .reduce((sum, d) => sum + Math.abs(d.points), 0);
+
+  // 0〜100の範囲に正規化
+  const rawScore = baseScore + bonusPoints - penaltyPoints;
+  const totalScore = Math.max(0, Math.min(100, rawScore));
+
+  // ========== アドバイス生成 ==========
   const advice: string[] = [];
-  const content = input.content;
-  const wordCount = countWords(content);
 
-  // Content length advice
-  if (wordCount < 15) {
-    advice.push(
-      "もう少し具体的な内容を追加すると滞在時間(Dwell)が向上します"
-    );
+  // 空の投稿
+  if (content.trim().length === 0) {
+    advice.push("投稿内容を入力してください");
+  } else {
+    // 加点を得られていない項目からアドバイス
+    bonusDetails
+      .filter((d) => !d.applied && d.reason)
+      .forEach((d) => {
+        advice.push(`💡 ${d.reason}`);
+      });
+
+    // 減点されている項目から警告
+    penaltyDetails
+      .filter((d) => d.applied && d.reason)
+      .forEach((d) => {
+        advice.push(`⚠️ ${d.reason}`);
+      });
+
+    // 追加のアドバイス
+    if (totalScore >= 80) {
+      advice.unshift("🎉 素晴らしい投稿です！高いエンゲージメントが期待できます");
+    } else if (totalScore >= 60) {
+      advice.unshift("👍 良い投稿です。さらに改善の余地があります");
+    } else if (totalScore >= 40) {
+      advice.unshift("📝 改善点を参考にブラッシュアップしましょう");
+    } else {
+      advice.unshift("🔄 投稿内容を見直すことをおすすめします");
+    }
   }
-
-  // Media advice
-  if (input.mediaType === "none") {
-    advice.push(
-      "動画を追加するとアルゴリズムスコアが大幅に向上します（Video View重み: +2.0）"
-    );
-  } else if (input.mediaType === "image") {
-    advice.push(
-      "画像は良いですが、動画の方がより高いエンゲージメントが期待できます"
-    );
-  }
-
-  // Question advice
-  if (!hasQuestion(content)) {
-    advice.push("質問形式にするとリプライ確率が上がります");
-  }
-
-  // CTA advice
-  if (!hasCallToAction(content)) {
-    advice.push(
-      "「いいね・RT歓迎」などのCTAを追加するとエンゲージメントが向上します"
-    );
-  }
-
-  // English advice
-  if (!hasEnglishText(content)) {
-    advice.push(
-      "英語併記でPhoenix Retrievalによるグローバルリーチが向上します"
-    );
-  }
-
-  // Thread advice
-  if (!input.isThread && wordCount > 100) {
-    advice.push(
-      "長文はスレッド形式にすると滞在時間とフォロー率が向上します"
-    );
-  }
-
-  // Emoji advice
-  const emojiCount = countEmojis(content);
-  if (emojiCount === 0) {
-    advice.push("1-3個の絵文字を追加すると視認性が向上します");
-  } else if (emojiCount > 5) {
-    advice.push("絵文字が多すぎるとスパム判定のリスクがあります");
-  }
-
-  // Hashtag advice
-  const hashtagCount = countHashtags(content);
-  if (hashtagCount === 0) {
-    advice.push("1-2個の関連ハッシュタグを追加すると発見性が向上します");
-  } else if (hashtagCount > 3) {
-    advice.push(
-      "ハッシュタグは2個以下に抑えると、スパム判定を回避できます"
-    );
-  }
-
-  // Time advice
-  if (input.postTime === "offpeak") {
-    advice.push(
-      "投稿時間をピークタイム（7-9時、12-13時、19-22時）に変更すると効果的です"
-    );
-  }
-
-  return advice;
-}
-
-// Generate warnings
-function generateWarnings(
-  input: TweetInput,
-  negatives: NegativeSignals
-): string[] {
-  const warnings: string[] = [];
-  const content = input.content;
-
-  // Consecutive posts warning
-  if (input.consecutivePosts > 5) {
-    warnings.push(
-      `Author Diversity警告: 24時間以内に${input.consecutivePosts}回投稿しています。連投はフィード表示優先度が下がります`
-    );
-  }
-
-  // Controversial content warning
-  if (hasControversialWords(content)) {
-    warnings.push(
-      "攻撃的な表現が検出されました。ネガティブシグナルのリスクがあります"
-    );
-  }
-
-  // Sensational content warning
-  if (hasSensationalWords(content)) {
-    warnings.push(
-      "センセーショナルな表現が検出されました。短期的なリーチは増えますが、長期的な評価に影響する可能性があります"
-    );
-  }
-
-  // High negative signals
-  if (negatives.notInterested > 0.1) {
-    warnings.push(
-      "「興味なし」判定のリスクが高いです。コンテンツの見直しを推奨します"
-    );
-  }
-
-  // Excessive hashtags
-  if (countHashtags(content) > 5) {
-    warnings.push(
-      "ハッシュタグが多すぎます。スパムフィルターに引っかかる可能性があります"
-    );
-  }
-
-  return warnings;
-}
-
-// Calculate global reach score (Phoenix Retrieval)
-function calculateGlobalReachScore(input: TweetInput): number {
-  let score = 30; // Base score
-
-  if (hasEnglishText(input.content)) {
-    score += 35;
-  }
-
-  if (input.mediaType === "video") {
-    score += 20;
-  } else if (input.mediaType === "image") {
-    score += 10;
-  }
-
-  if (input.targetAudience === "engineer" || input.targetAudience === "news") {
-    score += 10;
-  }
-
-  // Hashtags help discovery
-  const hashtagCount = countHashtags(input.content);
-  if (hashtagCount >= 1 && hashtagCount <= 2) {
-    score += 5;
-  }
-
-  return Math.min(100, score);
-}
-
-// Calculate author diversity risk
-function calculateAuthorDiversityRisk(
-  consecutivePosts: number
-): "low" | "medium" | "high" {
-  if (consecutivePosts <= 3) return "low";
-  if (consecutivePosts <= 7) return "medium";
-  return "high";
-}
-
-// Main scoring function
-export function calculateScore(input: TweetInput): ScoreResult {
-  const engagementProbs = calculateEngagementProbs(input);
-  const negativeSignals = calculateNegativeSignals(input);
-  const breakdown = calculateBreakdown(engagementProbs, negativeSignals);
-
-  // Calculate total score (0-100)
-  const rawScore =
-    breakdown.dwellContribution +
-    breakdown.videoViewContribution +
-    breakdown.engagementContribution -
-    breakdown.negativeImpact;
-
-  // Normalize to 0-100 scale
-  const totalScore = Math.min(100, Math.max(0, rawScore));
-
-  const advice = generateAdvice(input, engagementProbs);
-  const warnings = generateWarnings(input, negativeSignals);
-  const globalReachScore = calculateGlobalReachScore(input);
-  const authorDiversityRisk = calculateAuthorDiversityRisk(
-    input.consecutivePosts
-  );
 
   return {
     totalScore,
-    engagementProbs,
-    negativeSignals,
-    breakdown,
+    baseScore,
+    bonusPoints,
+    penaltyPoints,
+    bonusDetails,
+    penaltyDetails,
     advice,
-    warnings,
-    globalReachScore,
-    authorDiversityRisk,
+    stats,
   };
 }
