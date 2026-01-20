@@ -11,11 +11,13 @@ import {
   Type,
   Smile,
   AlignLeft,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import { calculateScore } from "./scoringEngine";
 import type { PostInput, MediaType, ScoreDetail } from "./types";
 
-// スコアゲージ
+// スコアゲージ（コンパクト版）
 function ScoreGauge({ score }: { score: number }) {
   const getColor = (score: number) => {
     if (score >= 80) return { text: "text-emerald-400", bg: "bg-emerald-500" };
@@ -34,17 +36,10 @@ function ScoreGauge({ score }: { score: number }) {
   const color = getColor(score);
 
   return (
-    <div className="text-center">
-      <div className="relative inline-flex items-center justify-center">
-        <svg className="w-32 h-32 -rotate-90" viewBox="0 0 100 100">
-          <circle
-            cx="50"
-            cy="50"
-            r="40"
-            fill="none"
-            stroke="#1f2937"
-            strokeWidth="8"
-          />
+    <div className="flex items-center gap-4">
+      <div className="relative">
+        <svg className="w-20 h-20 -rotate-90" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="40" fill="none" stroke="#1f2937" strokeWidth="8" />
           <circle
             cx="50"
             cy="50"
@@ -54,106 +49,22 @@ function ScoreGauge({ score }: { score: number }) {
             strokeWidth="8"
             strokeDasharray={`${score * 2.51} 251`}
             strokeLinecap="round"
-            className={`${color.text} transition-all duration-700`}
+            className={`${color.text} transition-all duration-500`}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={`text-3xl font-bold ${color.text}`}>{score}</span>
-          <span className="text-xs text-gray-400">/ 100</span>
+          <span className={`text-xl font-bold ${color.text}`}>{score}</span>
         </div>
       </div>
-      <div className={`mt-2 inline-block px-3 py-1 rounded-full ${color.bg} bg-opacity-20`}>
-        <span className={`text-sm font-medium ${color.text}`}>{getLabel(score)}</span>
-      </div>
-    </div>
-  );
-}
-
-// スコア内訳バー
-function ScoreBreakdown({
-  baseScore,
-  bonusPoints,
-  penaltyPoints,
-}: {
-  baseScore: number;
-  bonusPoints: number;
-  penaltyPoints: number;
-}) {
-  return (
-    <div className="bg-gray-800/50 rounded-lg p-4">
-      <h3 className="text-sm font-medium text-gray-400 mb-3">スコア内訳</h3>
-      <div className="space-y-2 text-sm">
-        <div className="flex justify-between">
-          <span className="text-gray-400">基準点</span>
-          <span className="text-white">{baseScore}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-emerald-400">+ 加点</span>
-          <span className="text-emerald-400">+{bonusPoints}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-red-400">- 減点</span>
-          <span className="text-red-400">-{penaltyPoints}</span>
-        </div>
-        <div className="border-t border-gray-700 pt-2 flex justify-between font-medium">
-          <span className="text-white">合計</span>
-          <span className="text-white">{Math.max(0, Math.min(100, baseScore + bonusPoints - penaltyPoints))}</span>
-        </div>
+      <div>
+        <div className={`text-lg font-bold ${color.text}`}>{getLabel(score)}</div>
+        <div className="text-xs text-gray-500">/ 100点</div>
       </div>
     </div>
   );
 }
 
-// 加点・減点リスト
-function ScoreDetailList({
-  title,
-  details,
-  type,
-}: {
-  title: string;
-  details: ScoreDetail[];
-  type: "bonus" | "penalty";
-}) {
-  const isBonus = type === "bonus";
-
-  return (
-    <div className="bg-gray-800/50 rounded-lg p-4">
-      <h3 className="text-sm font-medium text-gray-400 mb-3">{title}</h3>
-      <div className="space-y-2">
-        {details.map((detail, i) => (
-          <div
-            key={i}
-            className={`flex items-center justify-between text-sm ${
-              detail.applied
-                ? isBonus
-                  ? "text-emerald-400"
-                  : "text-red-400"
-                : "text-gray-500"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              {detail.applied ? (
-                isBonus ? (
-                  <CheckCircle2 className="w-4 h-4" />
-                ) : (
-                  <XCircle className="w-4 h-4" />
-                )
-              ) : (
-                <div className="w-4 h-4 rounded-full border border-gray-600" />
-              )}
-              <span>{detail.label}</span>
-            </div>
-            <span className={detail.applied ? "" : "text-gray-600"}>
-              {isBonus ? "+" : ""}{detail.points}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// 投稿統計
+// 投稿統計（横並び）
 function PostStats({
   charCount,
   hashtagCount,
@@ -165,33 +76,32 @@ function PostStats({
   emojiCount: number;
   lineBreakCount: number;
 }) {
+  const stats = [
+    { icon: Type, value: charCount, label: "文字", warn: charCount < 30 || charCount > 250 },
+    { icon: Hash, value: hashtagCount, label: "タグ", warn: hashtagCount >= 5 },
+    { icon: Smile, value: emojiCount, label: "絵文字", warn: emojiCount > 3 },
+    { icon: AlignLeft, value: lineBreakCount, label: "改行", warn: false },
+  ];
+
   return (
-    <div className="grid grid-cols-4 gap-2">
-      <div className="bg-gray-800/50 rounded-lg p-3 text-center">
-        <Type className="w-4 h-4 mx-auto mb-1 text-gray-400" />
-        <div className="text-lg font-bold text-white">{charCount}</div>
-        <div className="text-xs text-gray-500">文字</div>
-      </div>
-      <div className="bg-gray-800/50 rounded-lg p-3 text-center">
-        <Hash className="w-4 h-4 mx-auto mb-1 text-gray-400" />
-        <div className="text-lg font-bold text-white">{hashtagCount}</div>
-        <div className="text-xs text-gray-500">タグ</div>
-      </div>
-      <div className="bg-gray-800/50 rounded-lg p-3 text-center">
-        <Smile className="w-4 h-4 mx-auto mb-1 text-gray-400" />
-        <div className="text-lg font-bold text-white">{emojiCount}</div>
-        <div className="text-xs text-gray-500">絵文字</div>
-      </div>
-      <div className="bg-gray-800/50 rounded-lg p-3 text-center">
-        <AlignLeft className="w-4 h-4 mx-auto mb-1 text-gray-400" />
-        <div className="text-lg font-bold text-white">{lineBreakCount}</div>
-        <div className="text-xs text-gray-500">改行</div>
-      </div>
+    <div className="flex gap-3">
+      {stats.map((stat, i) => (
+        <div
+          key={i}
+          className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs ${
+            stat.warn ? "bg-red-500/10 text-red-400" : "bg-gray-800 text-gray-400"
+          }`}
+        >
+          <stat.icon className="w-3 h-3" />
+          <span className="font-medium">{stat.value}</span>
+          <span className="text-gray-500">{stat.label}</span>
+        </div>
+      ))}
     </div>
   );
 }
 
-// メディア選択
+// メディア選択（コンパクト）
 function MediaSelector({
   value,
   onChange,
@@ -207,21 +117,77 @@ function MediaSelector({
   ];
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-1">
       {options.map((opt) => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
-          className={`flex-1 flex flex-col items-center gap-1 px-3 py-2 rounded-lg border transition-all ${
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-all ${
             value === opt.value
-              ? "bg-blue-500/20 border-blue-500 text-blue-400"
-              : "bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-600"
+              ? "bg-blue-500/20 text-blue-400"
+              : "bg-gray-800 text-gray-500 hover:text-gray-300"
           }`}
         >
-          <opt.icon className="w-4 h-4" />
-          <span className="text-xs">{opt.label}</span>
+          <opt.icon className="w-3.5 h-3.5" />
+          <span>{opt.label}</span>
         </button>
       ))}
+    </div>
+  );
+}
+
+// スコア詳細リスト（コンパクト）
+function ScoreDetailList({
+  title,
+  icon: Icon,
+  details,
+  type,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  details: ScoreDetail[];
+  type: "bonus" | "penalty";
+}) {
+  const isBonus = type === "bonus";
+  const activeDetails = details.filter((d) => d.applied);
+  const inactiveDetails = details.filter((d) => !d.applied);
+
+  return (
+    <div>
+      <h3 className={`text-xs font-medium mb-2 flex items-center gap-1.5 ${
+        isBonus ? "text-emerald-400" : "text-red-400"
+      }`}>
+        <Icon className="w-3.5 h-3.5" />
+        {title}
+      </h3>
+      <div className="space-y-1">
+        {activeDetails.map((detail, i) => (
+          <div
+            key={i}
+            className={`flex items-center justify-between text-xs px-2 py-1.5 rounded ${
+              isBonus ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+            }`}
+          >
+            <div className="flex items-center gap-1.5">
+              {isBonus ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+              <span>{detail.label}</span>
+            </div>
+            <span className="font-medium">{isBonus ? "+" : ""}{detail.points}</span>
+          </div>
+        ))}
+        {inactiveDetails.map((detail, i) => (
+          <div
+            key={i}
+            className="flex items-center justify-between text-xs px-2 py-1.5 text-gray-600"
+          >
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-full border border-gray-700" />
+              <span>{detail.label}</span>
+            </div>
+            <span>{isBonus ? "+" : ""}{detail.points}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -231,18 +197,18 @@ function AdviceCard({ advice }: { advice: string[] }) {
   if (advice.length === 0) return null;
 
   return (
-    <div className="bg-gray-800/50 rounded-lg p-4">
-      <h3 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
-        <Sparkles className="w-4 h-4" />
+    <div>
+      <h3 className="text-xs font-medium text-gray-400 mb-2 flex items-center gap-1.5">
+        <Sparkles className="w-3.5 h-3.5" />
         アドバイス
       </h3>
-      <ul className="space-y-2">
+      <div className="space-y-1.5">
         {advice.map((item, i) => (
-          <li key={i} className="text-sm text-gray-300 leading-relaxed">
+          <p key={i} className="text-xs text-gray-300 leading-relaxed">
             {item}
-          </li>
+          </p>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }
@@ -256,92 +222,92 @@ export default function App() {
   const result = useMemo(() => calculateScore(input), [input]);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
+    <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col">
       {/* ヘッダー */}
-      <header className="border-b border-gray-800 bg-black/50 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-2xl mx-auto px-4 py-3">
+      <header className="border-b border-gray-800 bg-black/80 backdrop-blur-xl sticky top-0 z-50 shrink-0">
+        <div className="max-w-6xl mx-auto px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-blue-400" />
-            <h1 className="text-lg font-bold">X アルゴリズムシミュレーター</h1>
+            <Sparkles className="w-4 h-4 text-blue-400" />
+            <h1 className="text-sm font-bold">X アルゴリズムシミュレーター</h1>
+          </div>
+          <div className="text-xs text-gray-500">
+            Score = 50 + 加点 - 減点
           </div>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* 入力エリア */}
-        <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4">
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="投稿内容を入力してください..."
-            className="w-full h-32 bg-transparent border-none text-white placeholder-gray-500 focus:outline-none resize-none text-base leading-relaxed"
-          />
-          <div className="border-t border-gray-800 pt-3 mt-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">メディア添付</span>
-              <span className={`text-xs ${result.stats.charCount > 280 ? "text-red-400" : "text-gray-500"}`}>
-                {result.stats.charCount} / 280
-              </span>
+      {/* メインコンテンツ - obento式レイアウト */}
+      <main className="flex-1 max-w-6xl mx-auto w-full p-4">
+        <div className="grid lg:grid-cols-[1fr,380px] gap-4 h-full">
+          {/* 左カラム: 入力 + スコア */}
+          <div className="flex flex-col gap-4">
+            {/* ツイート入力エリア */}
+            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 flex-1 flex flex-col">
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="投稿内容を入力してください...&#10;&#10;例：&#10;Z世代に『七人の侍』見せたら&#10;「推しは誰？」って聞かれた&#10;&#10;黒澤明、70年前に推し活の概念作ってたの天才すぎない？🎬&#10;&#10;#七人の侍 #黒澤明"
+                className="flex-1 min-h-[200px] lg:min-h-0 bg-transparent border-none text-white placeholder-gray-600 focus:outline-none resize-none text-sm leading-relaxed"
+              />
+              <div className="border-t border-gray-800 pt-3 mt-3 flex items-center justify-between gap-4 flex-wrap">
+                <MediaSelector value={mediaType} onChange={setMediaType} />
+                <span className={`text-xs ${result.stats.charCount > 280 ? "text-red-400" : "text-gray-500"}`}>
+                  {result.stats.charCount} / 280
+                </span>
+              </div>
             </div>
-            <div className="mt-2">
-              <MediaSelector value={mediaType} onChange={setMediaType} />
+
+            {/* スコア + 統計 */}
+            <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <ScoreGauge score={result.totalScore} />
+                <div className="flex flex-col gap-2 items-end">
+                  <PostStats
+                    charCount={result.stats.charCount}
+                    hashtagCount={result.stats.hashtagCount}
+                    emojiCount={result.stats.emojiCount}
+                    lineBreakCount={result.stats.lineBreakCount}
+                  />
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="text-gray-500">基準 50</span>
+                    <span className="text-emerald-400">+{result.bonusPoints}</span>
+                    <span className="text-red-400">-{result.penaltyPoints}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 右カラム: 詳細情報 */}
+          <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4 flex flex-col gap-5 lg:overflow-y-auto lg:max-h-[calc(100vh-120px)]">
+            {/* アドバイス */}
+            <AdviceCard advice={result.advice} />
+
+            {/* 加点要素 */}
+            <ScoreDetailList
+              title="加点要素"
+              icon={TrendingUp}
+              details={result.bonusDetails}
+              type="bonus"
+            />
+
+            {/* 減点要素 */}
+            <ScoreDetailList
+              title="減点要素"
+              icon={TrendingDown}
+              details={result.penaltyDetails}
+              type="penalty"
+            />
+
+            {/* 計算式 */}
+            <div className="mt-auto pt-4 border-t border-gray-800">
+              <p className="text-[10px] text-gray-600 text-center">
+                X推奨アルゴリズムに基づくシミュレーション
+              </p>
             </div>
           </div>
         </div>
-
-        {/* スコア表示 */}
-        <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6">
-          <ScoreGauge score={result.totalScore} />
-        </div>
-
-        {/* 投稿統計 */}
-        <PostStats
-          charCount={result.stats.charCount}
-          hashtagCount={result.stats.hashtagCount}
-          emojiCount={result.stats.emojiCount}
-          lineBreakCount={result.stats.lineBreakCount}
-        />
-
-        {/* スコア内訳 */}
-        <ScoreBreakdown
-          baseScore={result.baseScore}
-          bonusPoints={result.bonusPoints}
-          penaltyPoints={result.penaltyPoints}
-        />
-
-        {/* 加点・減点 */}
-        <div className="grid md:grid-cols-2 gap-4">
-          <ScoreDetailList
-            title="加点要素"
-            details={result.bonusDetails}
-            type="bonus"
-          />
-          <ScoreDetailList
-            title="減点要素"
-            details={result.penaltyDetails}
-            type="penalty"
-          />
-        </div>
-
-        {/* アドバイス */}
-        <AdviceCard advice={result.advice} />
-
-        {/* スコア計算式 */}
-        <div className="bg-gray-800/30 rounded-lg p-4 text-center">
-          <p className="text-xs text-gray-500 mb-2">スコア計算式</p>
-          <p className="text-sm text-gray-400 font-mono">
-            Score = 50 + Σ(加点) - Σ(減点)
-          </p>
-          <p className="text-xs text-gray-600 mt-1">※ 0〜100の範囲に正規化</p>
-        </div>
       </main>
-
-      {/* フッター */}
-      <footer className="border-t border-gray-800 py-4 mt-8">
-        <div className="max-w-2xl mx-auto px-4 text-center text-xs text-gray-600">
-          X推奨アルゴリズムに基づくシミュレーションです
-        </div>
-      </footer>
     </div>
   );
 }
