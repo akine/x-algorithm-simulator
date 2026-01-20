@@ -47,7 +47,7 @@
 
 ```bash
 # Clone
-git clone https://github.com/YOUR_USERNAME/x-algorithm-simulator.git
+git clone https://github.com/akine/x-algorithm-simulator.git
 cd x-algorithm-simulator
 
 # Install
