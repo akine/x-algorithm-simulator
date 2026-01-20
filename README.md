@@ -1,73 +1,145 @@
-# React + TypeScript + Vite
+# ⚡ X Algorithm Simulator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+<p align="center">
+  <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=white" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/Tailwind-4-38B2AC?style=for-the-badge&logo=tailwindcss&logoColor=white" />
+  <img src="https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white" />
+</p>
 
-Currently, two official plugins are available:
+<p align="center">
+  🐦 X（旧Twitter）の最新アルゴリズム <b>Phoenix / Grok-based Transformer (2026)</b> をシミュレーション！<br/>
+  投稿前にスコアをチェックして、バズる投稿を目指そう 🚀
+</p>
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## ✨ Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| 機能 | 説明 |
+|------|------|
+| 📝 **ツイート入力** | 下書きをリアルタイムで分析 |
+| 🎯 **スコアリング** | 0-100点でアルゴリズム評価 |
+| 📊 **確率表示** | 各アクション（Like, RT, Reply等）の発生確率 |
+| 🎬 **メディア選択** | 画像/動画/リンク/投票の影響をシミュレート |
+| 🌍 **Global Reach** | 英語併記でPhoenix Retrievalスコア評価 |
+| ⚠️ **リスク警告** | 連投・炎上ワードを検知 |
+| 💡 **改善アドバイス** | スコアアップのヒントを日本語で表示 |
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🎮 Demo
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+```
+📈 Score: 78/100 [Excellent]
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+┌─────────────────────────────────┐
+│ Dwell Time      ████████░░  80% │  x2.5
+│ Video View      ██████████ 100% │  x2.0
+│ Follow          ██░░░░░░░░  15% │  x3.0
+│ Repost          █████░░░░░  45% │  x1.5
+└─────────────────────────────────┘
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 🚀 Quick Start
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# Clone
+git clone https://github.com/YOUR_USERNAME/x-algorithm-simulator.git
+cd x-algorithm-simulator
+
+# Install
+npm install
+
+# Dev server
+npm run dev
 ```
+
+ブラウザで `http://localhost:5173` を開く 🎉
+
+---
+
+## 🧮 Algorithm Weights
+
+Phoenix 2026 アルゴリズムの重み付け：
+
+| Action | Weight | 説明 |
+|--------|--------|------|
+| 👤 Follow | **x3.0** | 最高評価！フォロー獲得 |
+| ⏱️ Dwell | **x2.5** | 滞在時間 = 質の指標 |
+| 🎬 Video View | **x2.0** | 動画視聴（50%以上） |
+| 🔗 Share | **x1.8** | 外部シェア |
+| 🔄 Repost | **x1.5** | リポスト/RT |
+| 💬 Reply | **x1.0** | リプライ |
+| ❤️ Like | **x0.5** | いいね |
+| 🖱️ Click | **x0.3** | クリック |
+
+### ⛔ Negative Signals
+
+| Signal | Penalty |
+|--------|---------|
+| 🚨 Report | **-100** |
+| 🚫 Block | **-50** |
+| 🔇 Mute | **-30** |
+| 👎 Not Interested | **-10** |
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── 🎨 App.tsx           # メインUI
+├── 📋 types.ts          # TypeScript型定義
+├── 🧠 scoringEngine.ts  # スコア計算ロジック
+├── 🎭 index.css         # Tailwind + カスタムスタイル
+└── 🚪 main.tsx          # エントリーポイント
+```
+
+---
+
+## 🛠️ Tech Stack
+
+- ⚛️ **React 18** - UI Framework
+- 📘 **TypeScript** - Type Safety
+- 🎨 **Tailwind CSS v4** - Styling
+- ⚡ **Vite 6** - Build Tool
+- 🎯 **Lucide React** - Icons
+
+---
+
+## 📝 Tips for High Score
+
+1. 🎬 **動画を追加** - Video Viewの重みが高い（x2.0）
+2. ❓ **質問形式にする** - リプライ確率UP
+3. 🌐 **英語併記** - グローバルリーチ向上
+4. 🧵 **スレッド形式** - 滞在時間が大幅UP
+5. ⏰ **ピークタイム投稿** - 7-9時、12-13時、19-22時
+6. 📊 **連投を避ける** - Author Diversityペナルティ回避
+
+---
+
+## 🤝 Contributing
+
+PRs welcome! 🙌
+
+1. Fork it
+2. Create your feature branch (`git checkout -b feature/amazing`)
+3. Commit (`git commit -m '✨ Add amazing feature'`)
+4. Push (`git push origin feature/amazing`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+MIT License - feel free to use! 🎁
+
+---
+
+<p align="center">
+  Made with ❤️ and ☕<br/>
+  <b>Let's hack the algorithm! 🐦⚡</b>
+</p>
